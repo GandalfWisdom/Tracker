@@ -16,14 +16,14 @@
   "author": "GandalfWisdom",
   "license": "ISC",
   "dependencies": {
-    "@quenty/loader": "^10.7.1",
-    "@quenty/maid": "^3.4.0"
+    "@quenty/loader": "^10.9.0",
+    "@quenty/maid": "^3.5.0"
   },
   "publishConfig": {
     "access": "public"
   },
   "bugs": {
-    "url": "https://github.com/GandalfWisdom/StateBuddy/issues"
+    "url": "https://github.com/GandalfWisdom/Tracker/issues"
   },
-  "homepage": "https://github.com/GandalfWisdom/StateBuddy#readme"
+  "homepage": "https://github.com/GandalfWisdom/Tracker#readme"
 }

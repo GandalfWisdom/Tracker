@@ -1,5 +1,5 @@
 {
-  "name": "statebuddy",
+  "name": "tracker",
   "globIgnorePaths": [ "**/.package-lock.json" ],
   "tree": {
     "$path": "src"

@@ -176,8 +176,10 @@ function Tracker.Init(self: Tracker): ()
 	for index, anim in pairs(self.anims) do
 		self.tracks[index] = self._maid:Add(self.animator:LoadAnimation(anim));
 	end;
-	-- LOAD ANIM EVENTS INTO TABLE
+	-- LOAD ANIM EVENTS INTO TABLE.
 	self.track_events = self:GetTrackEvents();
+	--Set events.
+	self:SetEvents();
 end;
 
 --[=[

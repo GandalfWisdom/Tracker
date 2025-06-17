@@ -1,6 +1,8 @@
 --!strict
 local require = require(script.Parent.loader).load(script) :: any;
+local KeyframeSequenceProvider: KeyframeSequenceProvider = game:GetService("KeyframeSequenceProvider");
 local Maid = require("Maid");
+local Signal = require("Signal");
 
 local Tracker = {};
 Tracker.__index = Tracker;
@@ -10,12 +12,15 @@ export type Tracker = typeof(setmetatable(
     {} :: {
         _maid: Maid.Maid,
 		_track_maid: Maid.Maid,
+		_anim_folder: Folder,
 		plr: Player,
 		char: Model,
 		humanoid: Humanoid,
 		animator: Animator,
-		anims: {[string]: Animation},
-		tracks: {[string]: AnimationTrack},
+		TrackEvent: Signal.Signal<string>,
+		anims: { [string]: Animation },
+		tracks: { [string]: AnimationTrack },
+		track_events: { [string]: { [number]: string } },
 		last_track: AnimationTrack?
     },
    {} :: typeof({ __index = Tracker })
@@ -26,9 +31,11 @@ export type Tracker = typeof(setmetatable(
     @return Tracker
 ]=]
 function Tracker.new(anims_folder: Folder): Tracker
+	assert(anims_folder, "Animation folder invalid!");
 	local self: Tracker = setmetatable({} :: any, Tracker);
 	self._maid = Maid.new();
 	self._track_maid = self._maid:Add(Maid.new());
+	self._anim_folder = anims_folder;
 	self.plr = game:GetService("Players").LocalPlayer;
 	self.char = self.plr.Character or self.plr.CharacterAdded:Wait();
 	self.humanoid = self.char:WaitForChild("Humanoid") :: Humanoid;
@@ -36,20 +43,10 @@ function Tracker.new(anims_folder: Folder): Tracker
 
 	self.anims = {};
 	self.tracks = {};
+	self.track_events = {};
 	self.last_track = nil;
 
-	--LOAD ANIMS INTO USABLE TABLE
-	for _, anim_instance in pairs(anims_folder:GetDescendants()) do
-		if (anim_instance:IsA("Animation")) then
-			self.anims[anim_instance.Name] = anim_instance;
-		end;
-	end;
-
-	--LOAD ANIM INTO USABLE TRACKS IN TABLE
-	for index, anim in pairs(self.anims) do
-		self.tracks[index] = self._maid:Add(self.animator:LoadAnimation(anim));
-	end;
-
+	self:Init();
 	return self;
 end;
 
@@ -60,7 +57,7 @@ end;
 	@param weight number -- Weight of the animation to be played.
 	@param exclusive boolean -- Will stop all other currently playing animations before playing.
 ]=]
-function Tracker.Play(self: Tracker, action : string, playback_speed : number, weight : number, exclusive : boolean): ()
+function Tracker.Play(self: Tracker, action: string, playback_speed: number?, weight: number?, exclusive: boolean?): ()
 	local track = self.tracks[action];
 	if not (track) then return; end;
 
@@ -124,6 +121,62 @@ function Tracker.StopAll(self: Tracker): ()
 			anim_track:Stop();
 		end;
 	end;
+end;
+
+--[=[
+   	Gets all events in animation track.
+]=]
+function Tracker.GetTrackEvents(self: Tracker): { [string]: { [number]: string } }
+	local track_events: { [string]: { [number]: string } } = {};
+	for index, anim in pairs(self.anims) do
+		local keyframe_sequence: KeyframeSequence;
+		local success, _ = pcall(function()
+			keyframe_sequence = KeyframeSequenceProvider:GetKeyframeSequenceAsync(anim.AnimationId) :: KeyframeSequence;
+		end);
+		if not (success) then continue; end;
+		local markers: { [number]: string } = {};
+		for _, keyframe in pairs(keyframe_sequence:GetKeyframes()) do -- Loop through keyframe sequence
+			if not (keyframe:IsA("Keyframe")) then continue; end;
+			for _, marker in pairs(keyframe:GetMarkers()) do
+				if not (marker:IsA("KeyframeMarker")) then continue; end;
+				table.insert(markers, marker.Name);
+			end;
+		end;
+		if (#markers > 0) then track_events[index] = markers; end;
+	end;
+	return track_events;
+end;
+
+--[=[
+    Set tracker events. Sets all AnimationReachedSignal events to fire event.
+]=]
+function Tracker.SetEvents(self: Tracker): ()
+	for track_name, _ in pairs(self.tracks) do -- Sets GetMarkerReachedSignal events
+		if not (self.track_events[track_name]) then continue; end;
+		for _, event in pairs(self.track_events[track_name]) do
+			self._maid:GiveTask(self.tracks[track_name]:GetMarkerReachedSignal(event):Connect(function()
+				self.TrackEvent:Fire(event);
+			end));
+		end;
+	end;
+end;
+
+--[=[
+    Intializes Tracker class.
+]=]
+function Tracker.Init(self: Tracker): ()
+	-- LOAD ANIMS INTO USABLE TABLE.
+	for _, anim_instance in pairs(self._anim_folder:GetDescendants()) do
+		if (anim_instance:IsA("Animation")) then
+			self.anims[anim_instance.Name] = anim_instance;
+		end;
+	end;
+	-- LOAD ANIM INTO USABLE TRACKS IN TABLE.
+	for index, anim in pairs(self.anims) do
+		self.tracks[index] = self._maid:Add(self.animator:LoadAnimation(anim));
+	end;
+	-- LOAD ANIM EVENTS INTO TABLE
+	self.track_events = self:GetTrackEvents();
 end;
 
 --[=[

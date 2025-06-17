@@ -41,7 +41,7 @@ function Tracker.new(anims_folder: Folder): Tracker
 	self.humanoid = self.char:WaitForChild("Humanoid") :: Humanoid;
 	self.animator = self.humanoid:FindFirstChildOfClass("Animator") :: Animator;
 
-	self.TrackEvent = Signal.new();
+	self.TrackEvent = self._maid:Add(Signal.new());
 	self.anims = {};
 	self.tracks = {};
 	self.track_events = {};
